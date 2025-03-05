@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>随机文字按钮网页</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            position: relative;
+        }
+        #container {
+            max-width: 1000px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 50px;
+            padding: 20px;
+            border: 2px solid #4CAF50;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+        }
+        #task-areas {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 20px;
+        }
+        #daily-tasks, #weekly-tasks {
+            width: 45%;
+            padding: 10px;
+        }
+        #daily-tasks h4, #weekly-tasks h4 {
+            margin: 0 0 10px;
+            text-align: center;
+            display: inline-block;
+        }
+        .refresh-btn {
+            margin-left: 10px;
+            padding: 2px 8px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+        .refresh-btn:hover {
+            background-color: #cc0000;
+        }
+        .text-btn {
+            width: 100px;
+            padding: 10px;
+            text-align: center;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .text-btn.clicked {
+            background-color: #d0ffd0;
+            cursor: not-allowed;
+        }
+        .text-btn.clicked::after {
+            content: '✓';
+            color: green;
+            position: absolute;
+            right: 5px;
+            top: 10px;
+        }
+        .text-btn .completed-date {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            width: 100%;
+            font-size: 12px;
+            color: #555;
+            text-align: center;
+        }
+        #add-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #add-btn:hover {
+            background-color: #45a049;
+        }
+        #edit-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        #edit-modal input[type="text"] {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 5px;
+        }
+        #edit-modal button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+        #edit-modal label {
+            margin-right: 10px;
+        }
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <button id="add-btn">添加按钮</button>
+    <div id="container"></div>
+    <div id="task-areas">
+        <div id="daily-tasks"><h4>每日任务</h4><button class="refresh-btn" onclick="resetTasks('daily')">刷新</button></div>
+        <div id="weekly-tasks"><h4>每周任务</h4><button class="refresh-btn" onclick="resetTasks('weekly')">刷新</button></div>
+    </div>
+    <div id="overlay"></div>
+    <div id="edit-modal">
+        <h3 id="modal-title">编辑按钮</h3>
+        <input type="text" id="edit-text" placeholder="请输入按钮文字（最多20个字）" maxlength="20">
+        <input type="text" id="edit-url" placeholder="请输入网址（如 https://www.example.com）">
+        <button id="mark-daily">标记为每日</button>
+        <button id="mark-weekly">标记为每周</button>
+        <div>
+            <label><input type="checkbox" id="done" name="status"> 已做</label>
+            <label><input type="checkbox" id="not-done" name="status"> 未做</label>
+        </div>
+        <input type="text" id="edit-date" placeholder="手动设置日期（如 3月4日 或 3月3日-3月9日）">
+        <button id="save-btn">保存</button>
+        <button id="delete-btn">删除</button>
+        <button id="cancel-btn">取消</button>
+    </div>
+
+    <script>
+        let buttons = [
+            { "id": "btn1",  "text": "kinstu质押",               "url": "https://kintsu.xyz/staking" },
+            { "id": "btn2",  "text": "talentum任务平台",        "url": "https://monad.talentum.id/" },
+            { "id": "btn3",  "text": " Apriori质押",            "url": "https://stake.apr.io/" },
+            { "id": "btn4",  "text": "nad fun meme交互",       "url": "https://testnet.nad.fun/" },
+            { "id": "btn5",  "text": " Bebop刷交易一对多多对一", "url": "https://bebop.xyz/trade?network=monad&sell=MON&buy=WMON" },
+            { "id": "btn7",  "text": "Owlto部署合约",           "url": "https://owlto.finance/deploy/" },
+            { "id": "btn8",  "text": "uniswap交互和流动性",     "url": "https://app.uniswap.org/swap" },
+            { "id": "btn9",  "text": "Orbiter跨链",            "url": "https://testnet.orbiter.finance/en?src_chain=11155111&tgt_chain=10143&src_token=ETH" },
+            { "id": "btn10", "text": "Curvance借贷",            "url": "https://app.curvance.com/" },
+            { "id": "btn11", "text": "Ambient交易",            "url": "https://monad.ambient.finance/" },
+            { "id": "btn12", "text": "Accountable游戏",        "url": "https://game.accountable.capital/" },
+            { "id": "btn13", "text": "Nostra借贷",             "url": "https://monad.nostra.finance/" },
+            { "id": "btn14", "text": "Fantasy卡牌",            "url": "https://monad.fantasy.top/" },
+            { "id": "btn15", "text": " Aicraft投票",           "url": "https://aicraft.fun/projects/fizen" },
+            { "id": "btn16", "text": "kuru交互",               "url": "https://www.kuru.io/swap" },
+            { "id": "btn17", "text": "kizzy交互",              "url": "https://testnet.kizzy.io/" },
+            { "id": "btn18", "text": "Bima借贷",               "url": "https://bima.money/" },
+            { "id": "btn19", "text": "bean交互",               "url": "https://swap.bean.exchange/" },
+            { "id": "btn21", "text": "Caddy交互",              "url": "https://caddy.finance/" },
+            { "id": "btn22", "text": "Izumi交互流动性挖矿",    "url": "https://alpha.izumi.finance/trade/swap" },
+            { "id": "btn23", "text": "Magma质押",              "url": "https://www.magmastaking.xyz/" },
+            { "id": "btn24", "text": "Monorail周交互",         "url": "https://monorail.xyz/" },
+            { "id": "btn25", "text": "Multipli  进Testnet交互", "url": "https://multipli.fi/" },
+            { "id": "btn26", "text": "monadata.ai未出可以留意", "url": "https://monadata.ai/" },
+            { "id": "btn27", "text": "RareBetSports交互",      "url": "https://rarelink.rarebetsports.io/" },
+            { "id": "btn28", "text": "Magic创建nft和交互",    "url": "https://magiceden.io/monad-testnet" },
+            { "id": "btn29", "text": "fortytwo未发布留意",    "url": "https://fortytwo.network" },
+            { "id": "btn31", "text": "LFJ.gg 兑换和组lp",      "url": "https://pandaria.lfj.gg/" },
+            { "id": "btn32", "text": "PancakeSwap交互",        "url": "https://pancakeswap.finance/?chain=monadTestnet" },
+            { "id": "btn34", "text": "hashflow交互",           "url": "https://app.hashflow.com/?b=1-ETH&q=1-WETH" },
+            { "id": "btn35", "text": "castora交互",            "url": "https://castora.xyz/" },
+            { "id": "btn36", "text": "levr交互",               "url": "https://app.levr.bet" },
+            { "id": "btn37", "text": "narwhal交互",            "url": "https://testnet.narwhal.finance/" }
+        ];
+
+        const savedButtons = JSON.parse(localStorage.getItem('customButtons') || '[]');
+        if (savedButtons.length > 0) {
+            buttons = savedButtons;
+        }
+
+        let displayedButtons = [];
+        let nextId = buttons.length ? Math.max(...buttons.map(b => parseInt(b.id.replace('btn', '')))) + 1 : 1;
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function getCurrentDate() {
+            const now = new Date();
+            return `${now.getMonth() + 1}月${now.getDate()}日`;
+        }
+
+        function getWeekRange(date = new Date()) {
+            const now = new Date(date);
+            const day = now.getDay() || 7;
+            const start = new Date(now);
+            start.setDate(now.getDate() - day + 1);
+            const end = new Date(now);
+            end.setDate(now.getDate() - day + 7);
+            return `${start.getMonth() + 1}月${start.getDate()}日-${end.getMonth() + 1}月${end.getDate()}日`;
+        }
+
+        function isSameDay(dateStr, now) {
+            if (!dateStr) return false;
+            const [month, day] = dateStr.split('月').map(s => parseInt(s.replace('日', '')));
+            return now.getMonth() + 1 === month && now.getDate() === day;
+        }
+
+        function isSameWeek(weekStr, now) {
+            if (!weekStr) return false;
+            const [startStr] = weekStr.split('-');
+            const [month, day] = startStr.split('月').map(s => parseInt(s.replace('日', '')));
+            const weekStart = new Date(now.getFullYear(), month - 1, day);
+            const currentWeekStart = new Date(now);
+            const currentDay = currentWeekStart.getDay() || 7;
+            currentWeekStart.setDate(currentWeekStart.getDate() - currentDay + 1);
+            return weekStart.getTime() === currentWeekStart.getTime();
+        }
+
+        function resetTasks(type) {
+            displayedButtons.forEach(btn => {
+                if (btn.type === type) {
+                    btn.completed = false;
+                    if (type === 'daily') {
+                        btn.lastCompleted = '';
+                    } else if (type === 'weekly') {
+                        btn.lastCompletedWeek = '';
+                    }
+                }
+            });
+            buttons = displayedButtons.map(btn => ({ ...btn }));
+            localStorage.setItem('customButtons', JSON.stringify(buttons));
+            renderButtons();
+        }
+
+        function renderButtons() {
+            const container = document.getElementById('container');
+            const dailyTasks = document.getElementById('daily-tasks');
+            const weeklyTasks = document.getElementById('weekly-tasks');
+            container.innerHTML = '';
+            dailyTasks.innerHTML = '<h4>每日任务</h4><button class="refresh-btn" onclick="resetTasks(\'daily\')">刷新</button>';
+            weeklyTasks.innerHTML = '<h4>每周任务</h4><button class="refresh-btn" onclick="resetTasks(\'weekly\')">刷新</button>';
+
+            const now = new Date();
+            displayedButtons.forEach(btn => {
+                const div = document.createElement('div');
+                div.className = 'text-btn';
+                div.innerText = btn.text;
+                div.dataset.id = btn.id;
+                div.onclick = function() {
+                    window.open(btn.url, '_blank');
+                    if (btn.type === 'daily') {
+                        const last = btn.lastCompleted;
+                        if (!last || !isSameDay(last, now)) {
+                            btn.lastCompleted = getCurrentDate();
+                            btn.completed = true;
+                            div.classList.add('clicked');
+                            div.innerHTML += `<span class="completed-date">${btn.lastCompleted}已做</span>`;
+                            localStorage.setItem('customButtons', JSON.stringify(buttons));
+                        }
+                    } else if (btn.type === 'weekly') {
+                        const last = btn.lastCompletedWeek;
+                        if (!last || !isSameWeek(last, now)) {
+                            btn.lastCompletedWeek = getWeekRange();
+                            btn.completed = true;
+                            div.classList.add('clicked');
+                            div.innerHTML += `<span class="completed-date">${btn.lastCompletedWeek}该周已做</span>`;
+                            localStorage.setItem('customButtons', JSON.stringify(buttons));
+                        }
+                    }
+                };
+                div.oncontextmenu = function(e) {
+                    e.preventDefault();
+                    showEditModal(btn.id);
+                };
+                if (btn.completed && btn.type === 'daily' && btn.lastCompleted) {
+                    div.classList.add('clicked');
+                    div.innerHTML += `<span class="completed-date">${btn.lastCompleted}已做</span>`;
+                } else if (btn.completed && btn.type === 'weekly' && btn.lastCompletedWeek) {
+                    div.classList.add('clicked');
+                    div.innerHTML += `<span class="completed-date">${btn.lastCompletedWeek}该周已做</span>`;
+                }
+
+                if (!btn.type) {
+                    container.appendChild(div);
+                } else if (btn.type === 'daily') {
+                    dailyTasks.appendChild(div);
+                } else if (btn.type === 'weekly') {
+                    weeklyTasks.appendChild(div);
+                }
+            });
+        }
+
+        function showAddModal() {
+            document.getElementById('modal-title').innerText = '添加按钮';
+            document.getElementById('edit-text').value = '';
+            document.getElementById('edit-url').value = '';
+            document.getElementById('edit-date').value = '';
+            document.getElementById('done').checked = false;
+            document.getElementById('not-done').checked = true;
+            document.getElementById('delete-btn').style.display = 'none';
+            document.getElementById('edit-modal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('edit-modal').dataset.id = '';
+        }
+
+        function showEditModal(id) {
+            const btn = displayedButtons.find(b => b.id === id);
+            document.getElementById('modal-title').innerText = '编辑按钮';
+            document.getElementById('edit-text').value = btn.text;
+            document.getElementById('edit-url').value = btn.url;
+            document.getElementById('edit-date').value = btn.type === 'daily' ? btn.lastCompleted || '' : btn.type === 'weekly' ? btn.lastCompletedWeek || '' : '';
+            document.getElementById('done').checked = btn.completed || false;
+            document.getElementById('not-done').checked = !btn.completed;
+            document.getElementById('delete-btn').style.display = 'inline';
+            document.getElementById('edit-modal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('edit-modal').dataset.id = id;
+
+            // 单选逻辑
+            document.getElementById('done').onclick = function() {
+                if (this.checked) document.getElementById('not-done').checked = false;
+            };
+            document.getElementById('not-done').onclick = function() {
+                if (this.checked) document.getElementById('done').checked = false;
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        function saveButton() {
+            const text = document.getElementById('edit-text').value;
+            const url = document.getElementById('edit-url').value;
+            const date = document.getElementById('edit-date').value;
+            const completed = document.getElementById('done').checked;
+            if (!text || text.length > 20) {
+                alert("文字不能为空且不能超过20个字！");
+                return;
+            }
+            if (!url || !url.startsWith('http')) {
+                alert("请输入有效的网址！");
+                return;
+            }
+            const id = document.getElementById('edit-modal').dataset.id;
+            const existingBtn = buttons.find(b => b.id === id);
+            const newButton = { 
+                id: id || `btn${nextId++}`, 
+                text, 
+                url, 
+                type: existingBtn ? existingBtn.type : '', 
+                lastCompleted: existingBtn && existingBtn.type === 'daily' ? (date || existingBtn.lastCompleted) : '',
+                lastCompletedWeek: existingBtn && existingBtn.type === 'weekly' ? (date || existingBtn.lastCompletedWeek) : '',
+                completed: completed
+            };
+            if (!id) {
+                buttons.push(newButton);
+                displayedButtons.push(newButton);
+            } else {
+                const index = buttons.findIndex(b => b.id === id);
+                buttons[index] = newButton;
+                const displayIndex = displayedButtons.findIndex(b => b.id === id);
+                displayedButtons[displayIndex] = newButton;
+            }
+            localStorage.setItem('customButtons', JSON.stringify(buttons));
+            renderButtons();
+            closeModal();
+        }
+
+        function deleteButton() {
+            const id = document.getElementById('edit-modal').dataset.id;
+            if (id) {
+                buttons = buttons.filter(btn => btn.id !== id);
+                displayedButtons = displayedButtons.filter(btn => btn.id !== id);
+                localStorage.setItem('customButtons', JSON.stringify(buttons));
+                renderButtons();
+            }
+            closeModal();
+        }
+
+        function markDaily() {
+            const id = document.getElementById('edit-modal').dataset.id;
+            if (id) {
+                const index = buttons.findIndex(b => b.id === id);
+                buttons[index].type = 'daily';
+                buttons[index].lastCompletedWeek = '';
+                const displayIndex = displayedButtons.findIndex(b => b.id === id);
+                displayedButtons[displayIndex].type = 'daily';
+                displayedButtons[displayIndex].lastCompletedWeek = '';
+                localStorage.setItem('customButtons', JSON.stringify(buttons));
+                renderButtons();
+            }
+            closeModal();
+        }
+
+        function markWeekly() {
+            const id = document.getElementById('edit-modal').dataset.id;
+            if (id) {
+                const index = buttons.findIndex(b => b.id === id);
+                buttons[index].type = 'weekly';
+                buttons[index].lastCompleted = '';
+                const displayIndex = displayedButtons.findIndex(b => b.id === id);
+                displayedButtons[displayIndex].type = 'weekly';
+                displayedButtons[displayIndex].lastCompleted = '';
+                localStorage.setItem('customButtons', JSON.stringify(buttons));
+                renderButtons();
+            }
+            closeModal();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('add-btn').addEventListener('click', showAddModal);
+            document.getElementById('save-btn').addEventListener('click', saveButton);
+            document.getElementById('delete-btn').addEventListener('click', deleteButton);
+            document.getElementById('cancel-btn').addEventListener('click', closeModal);
+            document.getElementById('mark-daily').addEventListener('click', markDaily);
+            document.getElementById('mark-weekly').addEventListener('click', markWeekly);
+            displayedButtons = shuffle([...buttons]);
+            renderButtons();
+        });
+    </script>
+</body>
+</html>
